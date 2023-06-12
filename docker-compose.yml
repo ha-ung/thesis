@@ -1,0 +1,100 @@
+version: "3.9"
+
+# volumes:
+#   file_upload:
+#   word_frequency:
+    
+services: 
+  postgresql:
+    container_name: "postgresql"
+    build: postgresql/.
+    image: postgresql
+    restart: always
+    ports: 
+      - "5432:5432"
+    volumes:
+      - ./postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      POSTGRES_USER: "postgres"
+      PG_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "thesis_upload"
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  # file_upload:
+  #   container_name: "file_upload"
+  #   build: file_upload/.
+  #   image: "file_upload"
+  #   restart: always
+  #   ports:
+  #     - "5000:5000"
+  #   depends_on:
+  #     postgresql:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ./file_upload/files:/app/file_upload/files
+  #     - ./word_frequency/output:/app/word_frequency/output
+  #   environment:
+  #       PORT: "5000"
+  #       POSTGRES_HOST: "postgresql"
+  #       POSTGRES_USER: "postgres"
+  #       POSTGRES_PASSWORD: "postgres"
+  #       POSTGRES_DATABASE: "thesis_upload"
+  #       APP_ROOT_PATH: "/app/file_upload/files"
+  #       RABBITMQ_HOST: "amqp://rabbitmq:5672"
+  #       QUEUE_NAME: "uploaded_file_location"
+  #       EXCHANGE_NAME: "uploaded_file_location"
+  #       ROOT_DIR: "/app"
+  #       SERVICE_OUTPUT_DIR: "output"
+  #       SERVICE_LIST: "word_frequency, chapter_title, format_check, chapter_summarization, page_count"
+  # word_frequency:
+  #   container_name: "word_frequency"
+  #   build: word_frequency/.
+  #   image: "word_frequency"
+  #   restart: "always"
+  #   ports:
+  #     - "5001:5001"
+  #   depends_on:
+  #     postgresql:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ./file_upload/files:/app/file_upload/files
+  #     - ./word_frequency/output:/app/word_frequency/output
+  #   environment:
+  #     app_name: "word_frequency"
+  #     upload_file_exchange: "uploaded_file_location"
+  #     rabbitmq_host: "rabbitmq"
+  #     rabbitmq_user: "guest"
+  #     rabbitmq_port: "5672"
+  #     rabbitmq_password: "guest"
+  #     database_name: "word_frequency"
+  #     database_user: "postgres"
+  #     database_password: "postgres"
+  #     database_host: "postgresql"
+  #     database_port: "5432"
+  #     openai_api_key: "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"
+  #     output_path: "/app/word_frequency/output"
+  rabbitmq:
+    container_name: "rabbitmq"
+    build: rabbitmq/.
+    image: rabbitmq
+    ports:
+        - "5672:5672"
+    # volumes:
+    #   - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.config
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:15672"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+
+
