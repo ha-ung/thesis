@@ -1,4 +1,5 @@
-tika
 pika
 psycopg2
-openai
+pdfplumber
+python-dotenv
+google-cloud-storage

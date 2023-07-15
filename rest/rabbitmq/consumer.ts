@@ -1,5 +1,6 @@
 import amqp, { Channel, Connection } from "amqplib";
 import dotenv from "dotenv";
+import Event from "../database/Event";
 import Thesis from "../database/Thesis";
 import db from "../database/config";
 import { Model } from "sequelize";
@@ -32,67 +33,86 @@ export class Consumer {
         this.channel.consume(this.queueName, async (message: ConsumeMessage | null) => {
 
             if (message) {
-                console.log("\nReceived " + message.content.toString() + "\n");
+                let payload: {[key: string]: string} = JSON.parse(message.content.toString());
+                console.log("\nReceived message from " + payload["service_type"] + " for event " + payload["id"] + "\n");
 
-                const outputLocation: string = message?.content.toString();
-                const content: string[] = outputLocation.split("/");
-                const thesisId: string = content[content.length - 1].split(".")[0];
-
-                const transaction = await db.sequelize.transaction();
-
-                Thesis.findOne({
-                    lock: true,
-                    transaction,
-                    where: {
-                        id: thesisId
-                    }
-                }).then(async thesis => {
-                    const outputLocations: string[] = thesis?.dataValues.output_locations ?? [];
-
-                    outputLocations.push(outputLocation);
-                    
-                    Thesis.update({
-                        output_locations: outputLocations
-                    }, {
-                        transaction,
-                        where: {
-                            id: thesisId
+                Event.findOne({where: {id: payload["id"]}}).then(async event => {
+                    if (event) {
+                        if (payload["service_status"] !== "Service error") {
+                            event.update({service_status: payload["service_status"], output_location: payload["output_location"], result: payload["result"]});
                         }
-                    }).then(async response => {
-                        console.log("\n\nOutput location updated for " + message.content.toString() + "\n");
-                        await transaction.commit();
-                    }).catch(async error => {
-                        console.log("Transaction error while updating");
-                        await transaction.rollback();
-                    });
-                }).catch(async error => {
-                    console.log("Transaction error while finding");
-                    await transaction.rollback();
+                        else {
+                            event.update({status: payload["service_status"]});
+                        }
+                    }
+                    else {
+                        const event = Event.create(payload as any).then(async insert => {
+                            console.log("New event inserted from " + payload["service_type"] + " for event " + payload["id"] + "\n");
+                        }).catch(error => {
+                            console.log(error);
+                        });
+                    }
+                }).catch(error => {
+                    console.log(error);
                 });
+
+                // const thesisId: string = payload["thesis_id"];
+
+                // Thesis.findOne({where: {id: thesisId}}).then(async thesisResponse => {
+                //     if (thesisResponse) {
+                //         const event = Event.create(payload as any).then(async eventResponse => {
+                //             console.log("New event inserted from " + payload["service_type"] + " for event " + payload["id"] + "\n");
+                //         }).catch(error => {
+                //             console.log(error);
+                //         });
+                //     }
+                // }).catch(error => {
+                //     console.log(error);
+                // });
+
+                // Thesis.findOne({
+                //     where: {
+                //         id: thesisId
+                //     }
+                // }).then(async thesis => {
+
+                // }).catch(async error => {
+                //     console.log("Error finding thesis.");
+                // });
+
+                // const outputLocation: string = message?.content.toString();
+                // const content: string[] = outputLocation.split("/");
+                // const thesisId: string = content[content.length - 1].split(".")[0];
+
+                // const transaction = await db.sequelize.transaction();
 
                 // Thesis.findOne({
                 //     lock: true,
                 //     transaction,
                 //     where: {
                 //         id: thesisId
-                // }}).then(thesis => {
+                //     }
+                // }).then(async thesis => {
                 //     const outputLocations: string[] = thesis?.dataValues.output_locations ?? [];
 
                 //     outputLocations.push(outputLocation);
-
-                //     console.log("\n Updated output locations: ");
-                //     outputLocations.forEach(location => console.log(location + ", "));
-                //     console.log("\n");
-
+                    
                 //     Thesis.update({
                 //         output_locations: outputLocations
                 //     }, {
+                //         transaction,
                 //         where: {
                 //             id: thesisId
                 //         }
-                //     }).then(response => console.log("\n\nOutput location updated for " + message.content.toString()) + "\n");
+                //     }).then(async response => {
+                //         console.log("\n\nOutput location updated for " + message.content.toString() + "\n");
+                //         await transaction.commit();
+                //     }).catch(async error => {
+                //         console.log("Transaction error while updating");
+                //         await transaction.rollback();
+                //     });
                 // }).catch(async error => {
-                //     console.log(error);
+                //     console.log("Transaction error while finding");
                 //     await transaction.rollback();
                 // });
             }

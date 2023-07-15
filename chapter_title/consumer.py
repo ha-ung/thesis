@@ -1,5 +1,6 @@
 import pika
 import os
+
 from dotenv import load_dotenv
 from processor import output_file
 
@@ -30,7 +31,7 @@ class Consumer:
 
         def callback(ch, method, properties, body):
             uploaded_file_location = str(body.decode("utf-8"))
-            print("Received " + uploaded_file_location)
+            print("Received " + uploaded_file_location, flush=True)
 
             output_file(uploaded_file_location)
 

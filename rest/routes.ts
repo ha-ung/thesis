@@ -20,6 +20,7 @@ import getDeadline from "./controller/user/admin/getDeadline";
 import getAllNotifications from "./controller/user/admin/getAllNotifications";
 import getSubmissionStatus from "./controller/analysis/getSubmissionStatus";
 import getNewNotification from "./controller/user/getNewNotification";
+import getInstructor from "./controller/user/student/getInstructor";
 
 const Router = (app: Express) => {
     app.post("/login", login);
@@ -27,6 +28,7 @@ const Router = (app: Express) => {
     app.post("/download-file", downloadFile);
     app.post("/get-thesis-info", getThesisInfo);
     app.post("/get-user-info", getUserInfo);
+    app.post("/get-instructor", getInstructor);
     app.post("/get-student-info", getStudentInfo);
     app.post("/get-all-submissions", getAllSubmissions);
     app.post("/get-report", getReport);

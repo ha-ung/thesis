@@ -31,22 +31,9 @@ class Consumer:
 
         def callback(ch, method, properties, body):
             uploaded_file_location = str(body.decode("utf-8"))
-            print("Received " + uploaded_file_location)
+            print("Received " + uploaded_file_location, flush=True)
 
             output_file(uploaded_file_location)
-
-            # file_location = output_file(uploaded_file_location)
-            # file_name = os.path.basename(file_location)
-            # id = str(uuid.uuid4())
-            # uploaded_time = datetime.utcnow()
-            # output_parts = output_path.split("/")
-            # id = output_parts[-2].split("-")
-            # thesis_id = "-".join(id[2:])
-            # file_name = output_parts[-1]
-            # db = Database()
-            # db.insert("INSERT INTO output (id, file_name, file_location, uploaded_time) VALUES (%s, %s, %s, %s)", (id, file_name, file_location, uploaded_time))
-
-            # print("inserted in db")
 
         channel.basic_consume(queue=self.file_location_queue,
                                 auto_ack=True,

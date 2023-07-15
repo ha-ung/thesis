@@ -16,7 +16,7 @@ const readStreamIntoString = async (stream: internal.Readable) => {
 }
 
 const getGuidelines = async (req: Request, res: Response) => {
-    const services: string[] = process.env.SERVICE_LIST!.split(",") ?? [];
+    const services: string[] = process.env.GUIDELINES_LIST!.split(",") ?? [];
 
     if (services.length > 0) {
         const data: any = {};
@@ -26,19 +26,17 @@ const getGuidelines = async (req: Request, res: Response) => {
         const bucket: Bucket = storage.bucket(bucketName);
 
         for (let i = 0; i < services.length; i++) {
-            if (services[i] !== "word_frequency") {
-                const filePath: string = `requirements/${services[i]}/requirements.txt`;
-                const blob: File = bucket.file(filePath);
-    
-                await blob.exists().then(async response => {
-                    if (response[0] === true) {
-                        const readStream: internal.Readable = blob.createReadStream();
-                        const content: string = await readStreamIntoString(readStream);
-    
-                        data[services[i]] = content;
-                    }
-                });
-            }
+            const filePath: string = `requirements/${services[i]}/requirements.txt`;
+            const blob: File = bucket.file(filePath);
+
+            await blob.exists().then(async response => {
+                if (response[0] === true) {
+                    const readStream: internal.Readable = blob.createReadStream();
+                    const content: string = await readStreamIntoString(readStream);
+
+                    data[services[i]] = content;
+                }
+            });
         }
 
         res.status(200).send(data);

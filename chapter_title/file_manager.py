@@ -14,14 +14,14 @@ def get_file_from_bucket(file_name):
     if blob.exists():
         content = blob.download_as_bytes()
 
-        save_location = os.path.join("temp", os.path.basename(file_name) + ".pdf")
+        save_location = os.path.join("temp", os.path.basename(file_name))
 
         with open(save_location, "wb") as file:
             file.write(content)
         
         return save_location
     else:
-        print("PDF file does not exist in the bucket.")
+        print("PDF file does not exist in the bucket.", flush=True)
 
 
 def upload_file_to_bucket(file_path):
@@ -30,7 +30,7 @@ def upload_file_to_bucket(file_path):
 
     blob.upload_from_filename(file_path)
 
-    print("File uploaded to " + file_name + " in GCP bucket")
+    print("File uploaded to " + file_name + " in GCP bucket", flush=True)
 
     return file_name
 
@@ -44,7 +44,7 @@ def write_to_bucket(file_name, content):
         for line in content:
             file.write(line)
 
-    print("File upload to " + file_path)
+    print("File upload to " + file_path, flush=True)
     return file_path
 
 
@@ -54,10 +54,10 @@ def get_text_from_bucket(file_name):
     if blob.exists():
         content = blob.download_as_string()
         content = content.decode("utf-8")
-        
+
         return content
     else:
-        print("Requirement file does not exist in the bucket.")
+        print("Requirement file does not exist in the bucket.", flush=True)
 
 
 def remove_file_from_dir(file_path):
@@ -68,7 +68,7 @@ def remove_file_from_dir(file_path):
             except WindowsError:
                 time.sleep(0.1)
             else:
-                print("removed file at " + file_path) 
+                print("removed file at " + file_path, flush=True) 
                 break
     else:
-        print("error file not found")
+        print("error file not found", flush=True)

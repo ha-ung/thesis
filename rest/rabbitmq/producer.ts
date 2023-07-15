@@ -20,7 +20,7 @@ export class Producer {
             await this.init();
         }
 
-        this.channel.assertExchange(this.exchangeName, "fanout", {durable: true});
+        await this.channel.assertExchange(this.exchangeName, "fanout", {durable: true});
         this.channel.publish(this.exchangeName, "", Buffer.from(message));
 
         console.log("\nSent message: " + message);

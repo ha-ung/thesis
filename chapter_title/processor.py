@@ -2,9 +2,9 @@ import re
 import os
 import uuid
 import timeit
+import pdfplumber
+import Levenshtein
 
-from tika import parser
-from difflib import SequenceMatcher
 from dotenv import load_dotenv
 from datetime import datetime
 from database import Database
@@ -13,139 +13,140 @@ from file_manager import get_file_from_bucket, remove_file_from_dir, write_to_bu
 
 load_dotenv()
 
-def check_format(uploaded_file_location):
-    raw_text = parser.from_file(uploaded_file_location)
-    text_list = raw_text["content"]
-
+def extract_chapter_titles(uploaded_file_location):
+    chapter_titles = []
     chapter_regex = re.compile("(?:(C(?:hapter|HAPTER)) (\d)+(\.)?[ \n]*([A-Z][a-z/A-Z&/\- ]*)|(R(?:eferences|EFERENCES))|(A(?:bstract|BSTRACT))|(A(?:ppendix|PPENDIX)))( )*(\n)+")
-    chapter_title_tuple_list = re.findall(chapter_regex, text_list)
-    chapter_title_list = [list(element) for element in chapter_title_tuple_list]
-
-    final_chapter_title_list = []
-
-    for chapter in chapter_title_list:
-        chapter = list(filter(lambda x: x != "" and x != "\n" and x != " " and x != ".", chapter))
-        for i in range(len(chapter)):
-            chapter[i] = chapter[i].strip()
-        final_chapter_title_list.append(chapter)
-
-    return final_chapter_title_list
-
-
-def check_with_template(text_list, title_list):
-    count = 10
-    different_list = []
     
-    for chapter in text_list:
-        if (chapter.upper() not in title_list) and (chapter not in title_list):
-            count -= 1
-            different_list.append(chapter)
+    with pdfplumber.open(uploaded_file_location) as pdf:
+        for i in range(len(pdf.pages)):
+            page = pdf.pages[i]
+            text = page.extract_text()
 
-    for i in range(len(different_list)):
-        for j in range(len(title_list)):
-            if (different_list[i][:9] == title_list[j][:9] or different_list[i][:9].upper() == title_list[j][:9]):
-                count += SequenceMatcher(None, different_list[i].lower(), title_list[j].lower()).ratio()
+            chapter_title = re.search(chapter_regex, text)
+            if chapter_title:
+                chapter_title = chapter_title.group()
+                chapter_title = re.sub("[\n\t\.:]", " ", chapter_title).upper().strip()
+                chapter_title = " ".join(chapter_title.split())
 
-    count = count * 10
-    return str(round(count, 1)) + "%", different_list
+                chapter_titles.append(chapter_title)
 
-
-def generate_report(chapter_title_list):
-    # text_list = []
-    title_list = []
-
-    text_list = get_text_from_bucket("requirements/" + os.environ.get("APP_NAME") + "/requirements.txt").splitlines()
-    text_list = [line.rstrip("\n") for line in text_list]
-
-    # with open("template.txt") as file:
-    #     text_list = [line.rstrip("\n") for line in file]
-    
-    for chapter in chapter_title_list:
-        title_list.append(" ".join(chapter))
-
-    percent, different_list = check_with_template(text_list, title_list)
-    return text_list, title_list, percent, different_list
+    return chapter_titles
 
 
-def insert_database(file_location):
+def get_template():
+    template_titles = get_text_from_bucket("requirements/" + os.environ.get("APP_NAME") + "/requirements.txt").splitlines()
+    template_titles = [line.rstrip("\n").upper() for line in template_titles]
+
+    return template_titles
+
+
+def get_missing_titles(template_titles, chapter_titles):
+    missing_titles = template_titles[:]
+
+    for template_chapter in template_titles:
+        template_title = " ".join(template_chapter.split(" ")[:2])
+        
+        for chapter_title in chapter_titles:
+            if template_title in chapter_title:
+                if template_chapter in missing_titles:
+                    missing_titles.remove(template_chapter)
+
+    return missing_titles
+
+
+def check_with_template(template_titles, chapter_titles):
+    different_titles = []
+    title_comparison = {}
+    missing_titles = get_missing_titles(template_titles, chapter_titles)
+    count = 9 - len(missing_titles)
+
+    for template_title in template_titles:
+        if (template_title not in chapter_titles) and (template_title not in missing_titles):
+            different_titles.append(template_title)
+
+    if len(different_titles) > 0:
+        title_comparison = dict.fromkeys(different_titles)
+
+        for different_title in different_titles:
+            different_title_truncate = " ".join(different_title.split(" ")[:2])
+            for chapter_title in chapter_titles:
+                chapter_title_truncate = " ".join(chapter_title.split(" ")[:2])
+                if different_title_truncate == chapter_title_truncate:
+                    title_comparison[different_title] = chapter_title
+                    count -= (1 - Levenshtein.ratio(different_title, chapter_title))
+
+    grade = int(round(count * 100 / len(template_titles), 0))
+
+    return (title_comparison, missing_titles, grade)
+
+
+def insert_database(event_id, thesis_id, file_location, result):
     file_name = os.path.basename(file_location)
-    id = str(uuid.uuid4())
     uploaded_time = datetime.utcnow()
 
     db = Database()
-    db.insert("INSERT INTO output (id, file_name, file_location, uploaded_time) VALUES (%s, %s, %s, %s)", (id, file_name, file_location, uploaded_time))
+    db.insert("INSERT INTO output (id, thesis_id, file_name, file_location, result, uploaded_time) VALUES (%s, %s, %s, %s, %s, %s)", (event_id, thesis_id, file_name, file_location, result, uploaded_time))
 
-    print("inserted in db")
+    print("inserted in db", flush=True)
 
 
 def output_file(cloud_file_location):
     start_time = timeit.default_timer()
-    uploaded_file_location = get_file_from_bucket(cloud_file_location)
 
-    chapter_title_list = check_format(uploaded_file_location)
-    text_list, title_list, percent, different_list = generate_report(chapter_title_list)
-
+    event_id = str(uuid.uuid4())
     file_name = os.path.basename(cloud_file_location).split(".")[0]
-    output = ""
-
-    output += "Chapter titles according to template: \n"
-    for x in text_list:
-        output += str(x) + "\n"
-    output += "\n"
-
-    output += "Chapter titles detected in document: \n"
-    for x in title_list:
-        output += str(x) + "\n"
-    output += "\n"
-
-    if len(different_list) > 0:
-        output += "Missing or incorrect titles:\n"
-        for x in different_list:
-            output += str(x) + "\n"
-        output += "\n"
-
-    output += "Similarity percentage: " + percent
-
-    output_file_location = write_to_bucket(file_name, output)
-    print("\nTime for " + os.environ.get("APP_NAME") + " to process file " + file_name + " is " + str(timeit.default_timer() - start_time) + "\n")
-
-    print("finished uploading to bucket for " + os.environ.get("APP_NAME"))
-
-    remove_file_from_dir(uploaded_file_location)
-    
-    insert_database(output_file_location)
+    service_type = os.environ.get("APP_NAME")
+    thesis_id = file_name
 
     producer = Producer()
-    producer.publish_message(output_file_location)
 
-    print("Processing complete in " + os.environ.get("APP_NAME"))
+    uploaded_file_location = get_file_from_bucket(cloud_file_location)
+    producer.publish_status(event_id, thesis_id, service_type, "Processing")    
 
-    # try:
-    #     os.makedirs(os.path.dirname(final_path))
-    # except OSError as exc:
-    #     if exc.errno != errno.EEXIST:
-    #         raise
+    try:
+        chapter_titles = extract_chapter_titles(uploaded_file_location)
+        template_titles = get_template()
+        (different_titles, missing_titles, grade) = check_with_template(template_titles, chapter_titles)
 
-    # f = open(final_path, "w", encoding="utf-8")
+        output = "Chapter titles according to template: \n"
+        
+        for title in template_titles:
+            output += str(title) + "\n"
+        output += "\n"
 
-    # f.write("Chapter titles according to template: \n")
-    # for x in text_list:
-    #     f.write(str(x) + "\n")
-    # f.write("\n")
+        output += "Chapter titles detected in document: \n"
+        for title in chapter_titles:
+            output += str(title) + "\n"
+        output += "\n"
+
+        if len(missing_titles) > 0:
+            output += "Missing chapters: \n"
+            for title in missing_titles:
+                output += str(title) + "\n"
+            output += "\n"
+
+        if len(different_titles) > 0:
+            output += "Chapter titles that are different from template:\n"
+            for title in different_titles:
+                output += str(different_titles[title]) + " vs. " + str(title) + "\n"
+            output += "\n"
+        
+            result = "Pass" if grade > 50 else "Fail"
+            output += "Similarity percentage: " + str(grade) + "%\n"
+            output += "Service result: " + result + "\n"
+
+            output_file_location = write_to_bucket(file_name, output)
+            print("\nTime for " + os.environ.get("APP_NAME") + " to process file " + file_name + " is " + str(timeit.default_timer() - start_time) + "\n", flush=True)
+
+            print("finished uploading to bucket for " + os.environ.get("APP_NAME"), flush=True)
+
+            remove_file_from_dir(uploaded_file_location)
+            
+            insert_database(event_id, thesis_id, output_file_location, result)
+
+            producer.publish_message(event_id, thesis_id, service_type, output_file_location, result)
+
+            print("Processing complete in " + os.environ.get("APP_NAME"), flush=True)
+    except:
+        producer.publish_status(event_id, thesis_id, service_type, "Service error")
     
-    # f.write("Chapter titles detected in document: \n")
-    # for x in title_list:
-    #     f.write(str(x) + "\n")
-    # f.write("\n")
-
-    # if len(different_list) > 0:
-    #     f.write("Missing or incorrect titles:\n")
-    #     for x in different_list:
-    #         f.write(str(x) + "\n")
-    # f.write("\n")
-
-    # f.write("Similarity percentage: ")
-    # f.write(percent)
-
-    # print("finished format_check, output path = " + final_path)
-    # return final_path

@@ -2,6 +2,7 @@ import { DataTypes } from "sequelize";
 import db from "./config";
 import User from "./User";
 import UserType from "./UserType";
+import Instructor from "./Instructor";
 
 const Student = db.sequelize.define("Student", {
     student_id: {
@@ -11,6 +12,14 @@ const Student = db.sequelize.define("Student", {
         references: {
             model: User,
             key: "id"
+        }
+    },
+    instructor_id: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        references: {
+            model: Instructor,
+            key: "instructor_id"
         }
     },
     has_submitted: {
@@ -28,6 +37,13 @@ User.hasOne(Student, {
     foreignKey: "student_id"
 });
 
+Instructor.hasMany(Student, {
+    onUpdate: "CASCADE",
+    onDelete: "CASCADE",
+    foreignKey: "instructor_id"
+});
+
 Student.belongsTo(User, {foreignKey: "student_id"});
+Student.belongsTo(Instructor, {foreignKey: "instructor_id"});
 
 export default Student;

@@ -1,3 +1,0 @@
-tika
-pika
-psycopg2

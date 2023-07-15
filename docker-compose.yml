@@ -1,8 +1,8 @@
 version: "3.9"
 
-# volumes:
-#   file_upload:
-#   word_frequency:
+secrets:
+  gcp-credentials:
+    file: "./google_credentials.json"
     
 services: 
   postgresql:
@@ -24,63 +24,222 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-  # file_upload:
-  #   container_name: "file_upload"
-  #   build: file_upload/.
-  #   image: "file_upload"
-  #   restart: always
-  #   ports:
-  #     - "5000:5000"
-  #   depends_on:
-  #     postgresql:
-  #       condition: service_healthy
-  #     rabbitmq:
-  #       condition: service_healthy
-  #   volumes:
-  #     - ./file_upload/files:/app/file_upload/files
-  #     - ./word_frequency/output:/app/word_frequency/output
-  #   environment:
-  #       PORT: "5000"
-  #       POSTGRES_HOST: "postgresql"
-  #       POSTGRES_USER: "postgres"
-  #       POSTGRES_PASSWORD: "postgres"
-  #       POSTGRES_DATABASE: "thesis_upload"
-  #       APP_ROOT_PATH: "/app/file_upload/files"
-  #       RABBITMQ_HOST: "amqp://rabbitmq:5672"
-  #       QUEUE_NAME: "uploaded_file_location"
-  #       EXCHANGE_NAME: "uploaded_file_location"
-  #       ROOT_DIR: "/app"
-  #       SERVICE_OUTPUT_DIR: "output"
-  #       SERVICE_LIST: "word_frequency, chapter_title, format_check, chapter_summarization, page_count"
-  # word_frequency:
-  #   container_name: "word_frequency"
-  #   build: word_frequency/.
-  #   image: "word_frequency"
-  #   restart: "always"
-  #   ports:
-  #     - "5001:5001"
-  #   depends_on:
-  #     postgresql:
-  #       condition: service_healthy
-  #     rabbitmq:
-  #       condition: service_healthy
-  #   volumes:
-  #     - ./file_upload/files:/app/file_upload/files
-  #     - ./word_frequency/output:/app/word_frequency/output
-  #   environment:
-  #     app_name: "word_frequency"
-  #     upload_file_exchange: "uploaded_file_location"
-  #     rabbitmq_host: "rabbitmq"
-  #     rabbitmq_user: "guest"
-  #     rabbitmq_port: "5672"
-  #     rabbitmq_password: "guest"
-  #     database_name: "word_frequency"
-  #     database_user: "postgres"
-  #     database_password: "postgres"
-  #     database_host: "postgresql"
-  #     database_port: "5432"
-  #     openai_api_key: "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"
-  #     output_path: "/app/word_frequency/output"
+  rest:
+    container_name: "rest"
+    build: rest/.
+    image: "rest"
+    restart: always
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./rest/files:/app/rest/files
+    secrets:
+      - gcp-credentials
+    environment:
+        PORT: "5000"
+        APP_NAME: "rest"
+        HOST: "localhost"
+        POSTGRES_HOST: "postgresql"
+        POSTGRES_USER: "postgres"
+        POSTGRES_PASSWORD: "postgres"
+        POSTGRES_DATABASE: "thesis_upload"
+        RABBITMQ_HOST: "amqp://rabbitmq:5672"
+        RABBITMQ_FILE_LOCATION_EXCHANGE: "uploaded_file_location"
+        RABBITMQ_OUTPUT_LOCATION_EXCHANGE: "output_location"
+        ROOT_DIR: "/app"
+        SERVICE_LIST: "word_frequency,chapter_title,format_check,chapter_summarization,page_count,table_of_content"
+        GUIDELINES_LIST: "chapter_title,format_check,page_count"
+        GOOGLE_APPLICATION_CREDENTIALS: "/run/secrets/gcp-credentials"
+        GOOGLE_CLOUD_STORAGE_BUCKET: "thesis_file_bucket"
+  client:
+    container_name: "client"
+    build: client/.
+    image: "client"
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_SERVICE_LIST: "word_frequency,chapter_title,format_check,chapter_summarization,page_count,table_of_content"
+      REACT_APP_BACKEND_HOST: "http://localhost:5000/"
+  chapter_title:
+    container_name: "chapter_title"
+    build: chapter_title/.
+    image: "chapter_title"
+    restart: "always"
+    ports:
+      - "5001:5001"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./chapter_title/temp:/app/chapter_title/temp
+      - ./google_credentials.json:/app/google_credentials.json
+    environment:
+      APP_NAME: "chapter_title"
+      RABBITMQ_HOST: "rabbitmq"
+      RABBITMQ_USER: "guest"
+      RABBITMS_PORT: "5672"
+      RABBITMQ_PASSWORD: "guest"
+      DATABASE_NAME: "chapter_title"
+      DATABASE_USER: "postgres"
+      DATABASE_PASSWORD: "postgres"
+      DATABASE_HOST: "postgresql"
+      DATABASE_PORT: "5432"
+      GOOGLE_CLOUD_STORAGE_BUCKET: "thesis_file_bucket"
+      GOOGLE_APPLICATION_CREDENTIALS: "/app/google_credentials.json"
+      ROOT_DIR: "/app"
+  format_check:
+    container_name: "format_check"
+    build: format_check/.
+    image: "format_check"
+    restart: "always"
+    ports:
+      - "5002:5002"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./format_check/temp:/app/format_check/temp
+      - ./google_credentials.json:/app/google_credentials.json
+    environment:
+      APP_NAME: "format_check"
+      RABBITMQ_HOST: "rabbitmq"
+      RABBITMQ_USER: "guest"
+      RABBITMS_PORT: "5672"
+      RABBITMQ_PASSWORD: "guest"
+      DATABASE_NAME: "format_check"
+      DATABASE_USER: "postgres"
+      DATABASE_PASSWORD: "postgres"
+      DATABASE_HOST: "postgresql"
+      DATABASE_PORT: "5432"
+      GOOGLE_CLOUD_STORAGE_BUCKET: "thesis_file_bucket"
+      GOOGLE_APPLICATION_CREDENTIALS: "/app/google_credentials.json"
+      ROOT_DIR: "/app"
+  page_count:
+    container_name: "page_count"
+    build: page_count/.
+    image: "page_count"
+    restart: "always"
+    ports:
+      - "5003:5003"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./page_count/temp:/app/page_count/temp
+      - ./google_credentials.json:/app/google_credentials.json
+    environment:
+      APP_NAME: "page_count"
+      RABBITMQ_HOST: "rabbitmq"
+      RABBITMQ_USER: "guest"
+      RABBITMS_PORT: "5672"
+      RABBITMQ_PASSWORD: "guest"
+      DATABASE_NAME: "page_count"
+      DATABASE_USER: "postgres"
+      DATABASE_PASSWORD: "postgres"
+      DATABASE_HOST: "postgresql"
+      DATABASE_PORT: "5432"
+      GOOGLE_CLOUD_STORAGE_BUCKET: "thesis_file_bucket"
+      GOOGLE_APPLICATION_CREDENTIALS: "/app/google_credentials.json"
+      ROOT_DIR: "/app"
+  table_of_content:
+    container_name: "table_of_content"
+    build: table_of_content/.
+    image: "table_of_content"
+    restart: "always"
+    ports:
+      - "5004:5004"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./table_of_content/temp:/app/table_of_content/temp
+      - ./google_credentials.json:/app/google_credentials.json
+    environment:
+      APP_NAME: "table_of_content"
+      RABBITMQ_HOST: "rabbitmq"
+      RABBITMQ_USER: "guest"
+      RABBITMS_PORT: "5672"
+      RABBITMQ_PASSWORD: "guest"
+      DATABASE_NAME: "table_of_content"
+      DATABASE_USER: "postgres"
+      DATABASE_PASSWORD: "postgres"
+      DATABASE_HOST: "postgresql"
+      DATABASE_PORT: "5432"
+      GOOGLE_CLOUD_STORAGE_BUCKET: "thesis_file_bucket"
+      GOOGLE_APPLICATION_CREDENTIALS: "/app/google_credentials.json"
+      ROOT_DIR: "/app"
+  word_frequency:
+    container_name: "word_frequency"
+    build: word_frequency/.
+    image: "word_frequency"
+    restart: "always"
+    ports:
+      - "5005:5005"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./word_frequency/temp:/app/word_frequency/temp
+      - ./google_credentials.json:/app/google_credentials.json
+    environment:
+      APP_NAME: "word_frequency"
+      RABBITMQ_HOST: "rabbitmq"
+      RABBITMQ_USER: "guest"
+      RABBITMS_PORT: "5672"
+      RABBITMQ_PASSWORD: "guest"
+      DATABASE_NAME: "word_frequency"
+      DATABASE_USER: "postgres"
+      DATABASE_PASSWORD: "postgres"
+      DATABASE_HOST: "postgresql"
+      DATABASE_PORT: "5432"
+      GOOGLE_CLOUD_STORAGE_BUCKET: "thesis_file_bucket"
+      GOOGLE_APPLICATION_CREDENTIALS: "/app/google_credentials.json"
+      ROOT_DIR: "/app"
+  chapter_summarization:
+    container_name: "chapter_summarization"
+    build: chapter_summarization/.
+    image: "chapter_summarization"
+    restart: "always"
+    ports:
+      - "5006:5006"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./chapter_summarization/temp:/app/chapter_summarization/temp
+      - ./google_credentials.json:/app/google_credentials.json
+    environment:
+      APP_NAME: "chapter_summarization"
+      RABBITMQ_HOST: "rabbitmq"
+      RABBITMQ_USER: "guest"
+      RABBITMS_PORT: "5672"
+      RABBITMQ_PASSWORD: "guest"
+      DATABASE_NAME: "chapter_summarization"
+      DATABASE_USER: "postgres"
+      DATABASE_PASSWORD: "postgres"
+      DATABASE_HOST: "postgresql"
+      DATABASE_PORT: "5432"
+      GOOGLE_CLOUD_STORAGE_BUCKET: "thesis_file_bucket"
+      GOOGLE_APPLICATION_CREDENTIALS: "/app/google_credentials.json"
+      ROOT_DIR: "/app"
   rabbitmq:
     container_name: "rabbitmq"
     build: rabbitmq/.

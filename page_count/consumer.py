@@ -31,7 +31,7 @@ class Consumer:
 
         def callback(ch, method, properties, body):
             uploaded_file_location = str(body.decode("utf-8"))
-            print("Received " + uploaded_file_location)
+            print("Received " + uploaded_file_location, flush=True)
 
             output_file(uploaded_file_location)
 
@@ -39,3 +39,4 @@ class Consumer:
                                 auto_ack=True,
                                 on_message_callback=callback)
         channel.start_consuming()
+

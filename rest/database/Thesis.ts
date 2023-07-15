@@ -41,14 +41,10 @@ const Thesis = db.sequelize.define("Thesis", {
         type: DataTypes.DATE,
         allowNull: false
     },
-    output_locations: {
-        type: DataTypes.ARRAY(DataTypes.STRING),
-        defaultValue: [],
-        allowNull: true
-    }
-    // version: {
-    //     type: DataTypes.INTEGER,
-    //     allowNull: false
+    // output_locations: {
+    //     type: DataTypes.ARRAY(DataTypes.STRING),
+    //     defaultValue: [],
+    //     allowNull: true
     // }
 }, {
     tableName: "thesis"

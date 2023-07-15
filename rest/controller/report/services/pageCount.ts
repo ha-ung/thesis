@@ -3,7 +3,7 @@ const formatDataPageCount = (data: string) : {} => {
 
     if (data.includes("Page count detected in document:")) {
         const startIndex: number = data.indexOf("document:");
-        const endIndex: number = data.indexOf("Results:");
+        const endIndex: number = data.indexOf("Comparison:");
 
         if (startIndex && endIndex) {
             let text: string = "";
@@ -13,6 +13,7 @@ const formatDataPageCount = (data: string) : {} => {
             for (let i = startIndex + 9; i < endIndex; i++) {
                 text += data[i];
             }
+            text = text.replace(/\r?\n|\r/, "").trim();
 
             chapterPageCount = text.split("\n");
 
@@ -31,9 +32,9 @@ const formatDataPageCount = (data: string) : {} => {
         }
     }
 
-    if (data.includes("Results:")) {
-        const startIndex: number = data.indexOf("Results:");
-        const endIndex: number = data.length;
+    if (data.includes("Comparison:")) {
+        const startIndex: number = data.indexOf("parison:");
+        const endIndex: number = data.indexOf("Percentage:");
 
         if (startIndex && endIndex) {
             let text: string = "";
@@ -43,6 +44,7 @@ const formatDataPageCount = (data: string) : {} => {
             for (let i = startIndex + 9; i < endIndex; i++) {
                 text += data[i];
             }
+            text = text.replace(/\r?\n|\r/, "").trim();
 
             chapterPageCount = text.split("\n");
 
@@ -65,7 +67,6 @@ const formatDataPageCount = (data: string) : {} => {
 
             returnData.enough_count = enoughCount;
         }
-
     }
 
     return returnData;

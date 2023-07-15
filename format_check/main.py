@@ -5,8 +5,8 @@ import sys, os
 def main():
     load_dotenv()
 
-    print("in main " + os.environ["APP_NAME"])
-    
+    print("in main " + os.environ["APP_NAME"], flush=True)
+
     consumer = Consumer()
     consumer.consume_message()
 

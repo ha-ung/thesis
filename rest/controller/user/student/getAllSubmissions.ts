@@ -13,7 +13,6 @@ const getAllSubmissions = async (req: Request, res: Response) => {
     }
     else {
         const submissions: Model[] | null = await Thesis.findAll({where: {student_id: studentId}});
-        console.log(submissions)
 
         res.status(200).send(submissions);
     }
