@@ -7,20 +7,16 @@ type DestinationCallback = (error: Error | null, destination: string) => void;
 type FileNameCallback = (error: Error | null, filename: string) => void;
 
 const maxFileSize: number = 31457280; // 30mb
-let fileName: string;
 let id: string;
 let destinationPath: string;
 
 const storage = multer.diskStorage({
-    destination: async (
+    destination: (
         req: Request, 
         file: Express.Multer.File, 
         callback: DestinationCallback
     ) => {
-        id = uuidv4();
-
         destinationPath = path.join(process.env.ROOT_DIR!, process.env.APP_NAME!, "files");
-        
         callback(null,  destinationPath);
     },
     filename: (
@@ -28,8 +24,8 @@ const storage = multer.diskStorage({
         file: Express.Multer.File, 
         callback: FileNameCallback
     ) => {
-        fileName = id;
-        callback(null, fileName);
+        id = uuidv4();
+        callback(null, id);
     }
 });
 
@@ -47,31 +43,10 @@ const fileFilter = (req: Request, file: Express.Multer.File, callback : FileFilt
     callback(null, true);
 }
 
-export const uploadFile = async (req: Request, res: Response, next: NextFunction) => {
-    const upload = multer({ 
-        storage: storage,
-        limits: {
-            fileSize: maxFileSize
-        },
-        fileFilter: fileFilter
-    }).single("file");
-
-    upload(req, res, async (err: any) => {
-        if (err) {
-            const message: string = err.message;
-            if (message === "Incorrect file type.") {
-                res.status(422).send(message);
-            }
-            else if (message === "File exceeds limit.") {
-                res.status(413).send(message);
-            }
-        }
-        else {
-            res.locals.id = id;
-            res.locals.file_dir = destinationPath;
-            res.locals.file_name = fileName;
-            res.locals.file_location = path.join(destinationPath, fileName);
-            next();
-        }
-    });
-}
+export const uploadFile = multer({ 
+    storage: storage,
+    limits: {
+        fileSize: maxFileSize
+    },
+    fileFilter: fileFilter
+}).single("file");

@@ -8,7 +8,7 @@ services:
   postgresql:
     container_name: "postgresql"
     build: postgresql/.
-    image: postgresql
+    image: "heroinism/thesis/postgresql:latest"
     restart: always
     ports: 
       - "5432:5432"
@@ -27,7 +27,7 @@ services:
   rest:
     container_name: "rest"
     build: rest/.
-    image: "rest"
+    image: "heroinism/thesis/rest:latest"
     restart: always
     ports:
       - "5000:5000"
@@ -59,7 +59,7 @@ services:
   client:
     container_name: "client"
     build: client/.
-    image: "client"
+    image: "heroinism/thesis/client:latest"
     restart: always
     ports:
       - "3000:3000"
@@ -69,7 +69,7 @@ services:
   chapter_title:
     container_name: "chapter_title"
     build: chapter_title/.
-    image: "chapter_title"
+    image: "heroinism/thesis/chapter_title:latest"
     restart: "always"
     ports:
       - "5001:5001"
@@ -98,7 +98,7 @@ services:
   format_check:
     container_name: "format_check"
     build: format_check/.
-    image: "format_check"
+    image: "heroinism/thesis/format_check:latest"
     restart: "always"
     ports:
       - "5002:5002"
@@ -127,7 +127,7 @@ services:
   page_count:
     container_name: "page_count"
     build: page_count/.
-    image: "page_count"
+    image: "heroinism/thesis/page_count:latest"
     restart: "always"
     ports:
       - "5003:5003"
@@ -156,7 +156,7 @@ services:
   table_of_content:
     container_name: "table_of_content"
     build: table_of_content/.
-    image: "table_of_content"
+    image: "heroinism/thesis/table_of_content:latest"
     restart: "always"
     ports:
       - "5004:5004"
@@ -185,7 +185,7 @@ services:
   word_frequency:
     container_name: "word_frequency"
     build: word_frequency/.
-    image: "word_frequency"
+    image: "heroinism/thesis/word_frequency:latest"
     restart: "always"
     ports:
       - "5005:5005"
@@ -214,7 +214,7 @@ services:
   chapter_summarization:
     container_name: "chapter_summarization"
     build: chapter_summarization/.
-    image: "chapter_summarization"
+    image: "heroinism/thesis/chapter_summarization:latest"
     restart: "always"
     ports:
       - "5006:5006"
@@ -243,7 +243,7 @@ services:
   rabbitmq:
     container_name: "rabbitmq"
     build: rabbitmq/.
-    image: rabbitmq
+    image: "heroinism/thesis/rabbitmq:latest"
     ports:
         - "5672:5672"
     # volumes:
@@ -254,6 +254,3 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-
-
-
